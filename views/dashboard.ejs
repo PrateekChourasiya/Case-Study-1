@@ -1,0 +1,69 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Dashboard - File Management App</title>
+    <link rel="stylesheet" href="/css/dashboard.css">
+</head>
+<body>
+    <div class="header">
+        <div class="user-info">
+            Welcome, <span id="userNameDisplay">User</span> | Uploaded Files: <span id="fileCountDisplay">0</span>
+        </div>
+        <button id="logoutBtn" class="logout-btn">Logout</button>
+    </div>
+
+    <div class="layout">
+        <!-- Upload Card -->
+        <div class="card">
+            <h3>Upload New File</h3>
+            <form id="uploadForm">
+                <div class="form-group">
+                    <label for="fileInput">Choose File</label>
+                    <input type="file" id="fileInput" required>
+                </div>
+                <div class="form-group">
+                    <label for="fileNameInput">Custom Name (Optional)</label>
+                    <input type="text" id="fileNameInput" placeholder="Display name">
+                </div>
+                <button type="submit" class="submit-btn">Upload File</button>
+                <div id="uploadMessage" class="msg"></div>
+            </form>
+        </div>
+
+        <!-- Files List Card -->
+        <div class="card">
+            <h3>Your Files</h3>
+            <div class="filters">
+                <button class="filter-btn" data-type="image">Images</button>
+                <button class="filter-btn" data-type="pdf">PDFs</button>
+                <button class="filter-btn" data-type="doc">Docs</button>
+                <button class="filter-btn" data-type="ppt">PPTs</button>
+                <input type="number" id="sizeFilter" class="size-input" placeholder="Min Size (KB)">
+                <input type="text" id="searchInput" class="search-input" placeholder="Search by name...">
+            </div>
+
+            <table>
+                <thead>
+                    <tr>
+                        <th>Name</th>
+                        <th>Category</th>
+                        <th>MIME Type</th>
+                        <th>Size</th>
+                        <th>Uploaded At</th>
+                        <th>Actions</th>
+                    </tr>
+                </thead>
+                <tbody id="filesTableBody">
+                    <tr>
+                        <td colspan="6" style="text-align:center;padding:20px;">Loading files...</td>
+                    </tr>
+                </tbody>
+            </table>
+        </div>
+    </div>
+
+    <script src="/js/dashboard.js"></script>
+</body>
+</html>

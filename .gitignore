@@ -1,0 +1,9 @@
+node_modules/
+.env
+uploads/*
+!uploads/.gitkeep
+!uploads/images/.gitkeep
+!uploads/pdf/.gitkeep
+!uploads/doc/.gitkeep
+!uploads/ppt/.gitkeep
+!uploads/others/.gitkeep
