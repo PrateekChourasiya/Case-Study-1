@@ -1,10 +1,11 @@
 const jwt = require('jsonwebtoken');
+const mongoose = require('mongoose');
 const User = require('../models/user');
 const AppError = require('../utils/AppError');
 
 /**
  * Authentication middleware.
- * Verifies JWT from either cookies or Authorization Bearer header.
+ * Verifies JWT from cookies or Authorization Bearer header.
  * Attaches the authenticated user object to req.result.
  */
 const userMiddleware = async (req, res, next) => {
@@ -21,6 +22,11 @@ const userMiddleware = async (req, res, next) => {
         }
 
         const payload = jwt.verify(token, process.env.JWT_KEY);
+
+        // Validate that payload contains a valid MongoDB ObjectId before querying DB
+        if (!payload?._id || !mongoose.Types.ObjectId.isValid(payload._id)) {
+            return next(new AppError('Invalid token payload. Please log in again.', 401));
+        }
 
         const user = await User.findById(payload._id);
         if (!user) {
