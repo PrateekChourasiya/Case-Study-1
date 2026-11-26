@@ -163,8 +163,15 @@ const updateFile = async (req, res, next) => {
             return next(new AppError('File not found or you are not authorized to update it.', 404));
         }
 
+        const hasName = req.body.name && req.body.name.trim().length > 0;
+        const hasFile = !!req.file;
+
+        if (!hasName && !hasFile) {
+            return next(new AppError('Please provide a new file and/or a new display name to update.', 400));
+        }
+
         // Update display name if provided
-        if (req.body.name && req.body.name.trim().length > 0) {
+        if (hasName) {
             file.name = req.body.name.trim();
         }
 

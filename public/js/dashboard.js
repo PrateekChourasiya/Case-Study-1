@@ -6,6 +6,7 @@ let currentFilters = {
     size: '',
     search: ''
 };
+let filesMap = {};
 
 async function fetchProfile() {
     try {
@@ -37,12 +38,14 @@ async function loadFiles() {
         const tbody = document.getElementById('filesTableBody');
         tbody.innerHTML = '';
 
+        filesMap = {};
         if (!data.success || !data.data.files || data.data.files.length === 0) {
             tbody.innerHTML = '<tr><td colspan="6" style="text-align:center;color:#64748b;padding:20px;">No files found matching criteria.</td></tr>';
             return;
         }
 
         data.data.files.forEach(f => {
+            filesMap[f._id] = f;
             const tr = document.createElement('tr');
             const sizeKB = (f.size / 1024).toFixed(1);
             const dateStr = new Date(f.upload_at).toLocaleString();
@@ -55,7 +58,7 @@ async function loadFiles() {
                 <td>${dateStr}</td>
                 <td>
                     <button class="action-btn btn-download" onclick="downloadFile('${f._id}')">Download</button>
-                    <button class="action-btn btn-edit" onclick="renameFile('${f._id}', '${f.name}')">Rename</button>
+                    <button class="action-btn btn-edit" onclick="openUpdateModal('${f._id}')">Update</button>
                     <button class="action-btn btn-delete" onclick="deleteFile('${f._id}')">Delete</button>
                 </td>
             `;
@@ -111,26 +114,65 @@ document.getElementById('uploadForm').addEventListener('submit', async (e) => {
     }
 });
 
-async function renameFile(id, currentName) {
-    const newName = prompt('Enter new display name:', currentName);
-    if (!newName || newName.trim() === currentName) return;
+function openUpdateModal(id) {
+    const file = filesMap[id];
+    document.getElementById('updateFileId').value = id;
+    document.getElementById('updateFileName').value = file ? file.name : '';
+    document.getElementById('updateFileInput').value = '';
+    const msg = document.getElementById('updateMessage');
+    msg.textContent = '';
+    msg.className = 'msg';
+    document.getElementById('updateModal').classList.add('active');
+}
+
+function closeUpdateModal() {
+    document.getElementById('updateModal').classList.remove('active');
+}
+
+document.getElementById('updateFileForm').addEventListener('submit', async (e) => {
+    e.preventDefault();
+    const id = document.getElementById('updateFileId').value;
+    const name = document.getElementById('updateFileName').value.trim();
+    const fileInput = document.getElementById('updateFileInput');
+    const msg = document.getElementById('updateMessage');
+
+    const hasNewFile = fileInput.files && fileInput.files[0];
+    if (!name && !hasNewFile) {
+        msg.className = 'msg error';
+        msg.textContent = 'Please enter a name or choose a replacement file.';
+        return;
+    }
+
+    const formData = new FormData();
+    if (name) {
+        formData.append('name', name);
+    }
+    if (hasNewFile) {
+        formData.append('file', fileInput.files[0]);
+    }
+
+    msg.className = 'msg';
+    msg.textContent = 'Updating file...';
 
     try {
         const res = await fetch(`/api/file/${id}`, {
             method: 'PUT',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ name: newName.trim() })
+            body: formData
         });
         const data = await res.json();
+
         if (data.success) {
+            closeUpdateModal();
             loadFiles();
         } else {
-            alert(data.message || 'Update failed');
+            msg.className = 'msg error';
+            msg.textContent = data.message || 'Update failed.';
         }
     } catch (err) {
-        alert('Failed to rename file.');
+        msg.className = 'msg error';
+        msg.textContent = 'Error updating file.';
     }
-}
+});
 
 async function downloadFile(id) {
     try {

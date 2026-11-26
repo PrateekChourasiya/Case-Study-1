@@ -64,6 +64,33 @@
         </div>
     </div>
 
+    <!-- Update File Modal -->
+    <div id="updateModal" class="modal">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h3>Update File</h3>
+                <button type="button" class="close-btn" onclick="closeUpdateModal()">&times;</button>
+            </div>
+            <form id="updateFileForm">
+                <input type="hidden" id="updateFileId">
+                <div class="form-group">
+                    <label for="updateFileName">Display Name</label>
+                    <input type="text" id="updateFileName" placeholder="Enter new display name">
+                </div>
+                <div class="form-group">
+                    <label for="updateFileInput">Replace File (Optional)</label>
+                    <input type="file" id="updateFileInput">
+                    <small style="color: #64748b; font-size: 11px; display: block; margin-top: 4px;">Choose a new file to replace the existing one on S3.</small>
+                </div>
+                <div class="modal-actions">
+                    <button type="button" class="cancel-btn" onclick="closeUpdateModal()">Cancel</button>
+                    <button type="submit" class="submit-btn" style="width: auto; padding: 8px 16px;">Save Changes</button>
+                </div>
+                <div id="updateMessage" class="msg"></div>
+            </form>
+        </div>
+    </div>
+
     <script src="/js/dashboard.js"></script>
 </body>
 </html>

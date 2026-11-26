@@ -54,7 +54,7 @@ const loginSchema = z.object({
 // ─── File Schemas ─────────────────────────────────────────────────────────────
 
 const updateFileSchema = z.object({
-    name: z.string().min(1, 'File name cannot be empty').max(100).optional()
+    name: z.string().trim().max(100, 'File name cannot exceed 100 characters').optional().or(z.literal(''))
 });
 
 module.exports = {
