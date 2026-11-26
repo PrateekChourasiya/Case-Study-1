@@ -39,12 +39,20 @@ async function deleteFromS3(s3Key) {
 
 /**
  * Generate a presigned download URL (expires in 1 hour by default).
+ * Optionally sets ResponseContentDisposition to force download with original filename.
  */
-async function getPresignedDownloadUrl(s3Key, expiresInSeconds = 3600) {
-    const command = new GetObjectCommand({
+async function getPresignedDownloadUrl(s3Key, originalName = null, expiresInSeconds = 3600) {
+    const params = {
         Bucket: BUCKET,
         Key: s3Key
-    });
+    };
+
+    if (originalName) {
+        // Forces browser to download with the proper original file name
+        params.ResponseContentDisposition = `attachment; filename="${encodeURIComponent(originalName)}"`;
+    }
+
+    const command = new GetObjectCommand(params);
     return await getSignedUrl(s3Client, command, { expiresIn: expiresInSeconds });
 }
 

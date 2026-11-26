@@ -54,7 +54,7 @@ async function loadFiles() {
                 <td>${sizeKB} KB</td>
                 <td>${dateStr}</td>
                 <td>
-                    <a href="/api/file/${f._id}/download" class="action-btn btn-download">Download</a>
+                    <button class="action-btn btn-download" onclick="downloadFile('${f._id}')">Download</button>
                     <button class="action-btn btn-edit" onclick="renameFile('${f._id}', '${f.name}')">Rename</button>
                     <button class="action-btn btn-delete" onclick="deleteFile('${f._id}')">Delete</button>
                 </td>
@@ -129,6 +129,27 @@ async function renameFile(id, currentName) {
         }
     } catch (err) {
         alert('Failed to rename file.');
+    }
+}
+
+async function downloadFile(id) {
+    try {
+        const res = await fetch(`/api/file/${id}/download`);
+        const data = await res.json();
+
+        if (data.success && data.data && data.data.downloadUrl) {
+            // Create a temporary hidden anchor to trigger direct browser download
+            const link = document.createElement('a');
+            link.href = data.data.downloadUrl;
+            link.style.display = 'none';
+            document.body.appendChild(link);
+            link.click();
+            document.body.removeChild(link);
+        } else {
+            alert(data.message || 'Failed to download file.');
+        }
+    } catch (err) {
+        alert('An error occurred while downloading the file.');
     }
 }
 

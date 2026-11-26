@@ -139,7 +139,7 @@ const downloadFile = async (req, res, next) => {
             return next(new AppError('File not found or you are not authorized to download it.', 404));
         }
 
-        const downloadUrl = await getPresignedDownloadUrl(file.s3Key);
+        const downloadUrl = await getPresignedDownloadUrl(file.s3Key, file.originalName);
 
         res.status(200).json({
             success: true,
