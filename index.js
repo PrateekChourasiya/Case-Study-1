@@ -1,7 +1,6 @@
 const express = require('express');
 const cookieParser = require('cookie-parser');
 const path = require('path');
-const cors = require('cors');
 require('dotenv').config();
 
 const main = require('./config/db');
@@ -12,12 +11,6 @@ const errorHandler = require('./middleware/errorMiddleware');
 const loggerMiddleware = require('./middleware/loggerMiddleware');
 
 const app = express();
-
-// Enable CORS
-app.use(cors({
-    origin: true,
-    credentials: true
-}));
 
 // HTTP Request Logger
 app.use(loggerMiddleware);
