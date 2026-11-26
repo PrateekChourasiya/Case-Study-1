@@ -35,9 +35,9 @@ const fileSchema = new Schema(
             type: Number,
             required: true // size in bytes
         },
-        subfolderPath: {
+        s3Key: {
             type: String,
-            required: true // relative path e.g. 'uploads/images/...'
+            required: true // S3 object key e.g. 'images/173200123-abc123.png'
         },
         upload_at: {
             type: Date,

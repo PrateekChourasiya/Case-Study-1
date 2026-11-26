@@ -1,12 +1,12 @@
 const path = require('path');
-const fs = require('fs');
 const File = require('../models/file');
 const User = require('../models/user');
 const AppError = require('../utils/AppError');
 const { getFileCategory } = require('../utils/fileCategories');
+const { uploadToS3, deleteFromS3, getPresignedDownloadUrl } = require('../utils/s3Helper');
 
 /**
- * Upload a file, save to specific category subfolder, and store metadata in MongoDB.
+ * Upload a file to S3 and store metadata in MongoDB.
  */
 const uploadFile = async (req, res, next) => {
     try {
@@ -15,7 +15,8 @@ const uploadFile = async (req, res, next) => {
         }
 
         const category = req.fileCategory || getFileCategory(req.file);
-        const subfolderPath = path.join('uploads', category, req.file.filename).replace(/\\/g, '/');
+        const { s3Key, uniqueName } = await uploadToS3(req.file, category);
+
         const displayName = req.body.name && req.body.name.trim().length > 0
             ? req.body.name.trim()
             : req.file.originalname;
@@ -23,17 +24,16 @@ const uploadFile = async (req, res, next) => {
         const file = await File.create({
             name: displayName,
             originalName: req.file.originalname,
-            systemFilename: req.file.filename,
+            systemFilename: uniqueName,
             category,
             type: req.file.mimetype,
             extension: path.extname(req.file.originalname).toLowerCase(),
             size: req.file.size,
-            subfolderPath,
+            s3Key,
             upload_at: new Date(),
             uploaded_by: req.result._id
         });
 
-        // Update the user's reference list and count
         await User.findByIdAndUpdate(req.result._id, {
             $push: { filesUploaded: file._id },
             $inc: { filesUploadedCount: 1 }
@@ -41,7 +41,7 @@ const uploadFile = async (req, res, next) => {
 
         res.status(201).json({
             success: true,
-            message: 'File uploaded successfully.',
+            message: 'File uploaded successfully to S3.',
             data: { file }
         });
     } catch (err) {
@@ -64,10 +64,8 @@ const getAllFiles = async (req, res, next) => {
     try {
         const { image, pdf, doc, ppt, size, search, sort } = req.query;
 
-        // Base query: only files belonging to this authenticated user
         const query = { uploaded_by: req.result._id };
 
-        // Category filter based on query params
         const selectedCategories = [];
         if (image === 'true') selectedCategories.push('images');
         if (pdf === 'true') selectedCategories.push('pdf');
@@ -78,7 +76,6 @@ const getAllFiles = async (req, res, next) => {
             query.category = { $in: selectedCategories };
         }
 
-        // Size filter in KB (size >= X KB)
         if (size) {
             const sizeInBytes = parseFloat(size) * 1024;
             if (!isNaN(sizeInBytes)) {
@@ -86,13 +83,11 @@ const getAllFiles = async (req, res, next) => {
             }
         }
 
-        // Search by file name or original name
         if (search && search.trim().length > 0) {
             const regex = new RegExp(search.trim(), 'i');
             query.$or = [{ name: regex }, { originalName: regex }];
         }
 
-        // Sorting
         const sortOption = sort === 'oldest' ? { upload_at: 1 } : { upload_at: -1 };
 
         const files = await File.find(query).sort(sortOption);
@@ -133,7 +128,7 @@ const getFileById = async (req, res, next) => {
 };
 
 /**
- * Download/stream the physical file from disk.
+ * Download — returns a presigned URL (valid 1 hour) instead of streaming from disk.
  */
 const downloadFile = async (req, res, next) => {
     try {
@@ -144,20 +139,20 @@ const downloadFile = async (req, res, next) => {
             return next(new AppError('File not found or you are not authorized to download it.', 404));
         }
 
-        const absolutePath = path.join(__dirname, '..', file.subfolderPath);
+        const downloadUrl = await getPresignedDownloadUrl(file.s3Key);
 
-        if (!fs.existsSync(absolutePath)) {
-            return next(new AppError('Physical file was not found on the server disk.', 404));
-        }
-
-        res.download(absolutePath, file.originalName);
+        res.status(200).json({
+            success: true,
+            message: 'Download URL generated. Valid for 1 hour.',
+            data: { downloadUrl }
+        });
     } catch (err) {
         next(err);
     }
 };
 
 /**
- * Update file display name and/or replace the physical file on disk.
+ * Update file display name and/or replace the file on S3.
  */
 const updateFile = async (req, res, next) => {
     try {
@@ -173,24 +168,21 @@ const updateFile = async (req, res, next) => {
             file.name = req.body.name.trim();
         }
 
-        // If a new file is uploaded, replace the physical file
+        // If a new file is uploaded, replace the old one on S3
         if (req.file) {
-            // Delete the old physical file from its previous folder
-            const oldPath = path.join(__dirname, '..', file.subfolderPath);
-            if (fs.existsSync(oldPath)) {
-                await fs.promises.unlink(oldPath);
-            }
+            // Delete the old file from S3
+            await deleteFromS3(file.s3Key);
 
             const category = req.fileCategory || getFileCategory(req.file);
-            const subfolderPath = path.join('uploads', category, req.file.filename).replace(/\\/g, '/');
+            const { s3Key, uniqueName } = await uploadToS3(req.file, category);
 
             file.originalName = req.file.originalname;
-            file.systemFilename = req.file.filename;
+            file.systemFilename = uniqueName;
             file.category = category;
             file.type = req.file.mimetype;
             file.extension = path.extname(req.file.originalname).toLowerCase();
             file.size = req.file.size;
-            file.subfolderPath = subfolderPath;
+            file.s3Key = s3Key;
         }
 
         await file.save();
@@ -206,7 +198,7 @@ const updateFile = async (req, res, next) => {
 };
 
 /**
- * Delete file metadata from MongoDB and delete the physical file from disk.
+ * Delete file from S3 and remove metadata from MongoDB.
  */
 const deleteFile = async (req, res, next) => {
     try {
@@ -217,11 +209,8 @@ const deleteFile = async (req, res, next) => {
             return next(new AppError('File not found or you are not authorized to delete it.', 404));
         }
 
-        // Remove the physical file from disk
-        const physicalPath = path.join(__dirname, '..', file.subfolderPath);
-        if (fs.existsSync(physicalPath)) {
-            await fs.promises.unlink(physicalPath);
-        }
+        // Delete from S3
+        await deleteFromS3(file.s3Key);
 
         // Delete from database
         await File.findByIdAndDelete(file._id);
@@ -234,7 +223,8 @@ const deleteFile = async (req, res, next) => {
 
         res.status(200).json({
             success: true,
-            message: 'File deleted successfully from database and server disk.'
+            message: 'File deleted from S3 and database.',
+            data: null
         });
     } catch (err) {
         next(err);
